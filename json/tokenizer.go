@@ -1,6 +1,9 @@
 package json
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 type TokenKind int
 
@@ -42,7 +45,7 @@ func (t *tokenizer) tokenize() ([]token, error) {
 	tokens := make([]token, 0)
 
 	for {
-		if t.pos >= len(t.input) {
+		if t.pos > len(t.input)-1 {
 			break
 		}
 
@@ -74,10 +77,28 @@ func (t *tokenizer) tokenize() ([]token, error) {
 				kind:  TokenCloseBracket,
 				value: string(cur),
 			})
+		case ',':
+			t.pos++
+			tokens = append(tokens, token{
+				kind:  TokenComma,
+				value: string(cur),
+			})
+		case ':':
+			t.pos++
+			tokens = append(tokens, token{
+				kind:  TokenColon,
+				value: string(cur),
+			})
+		case '"':
+			token, err := t.readString()
+			if err != nil {
+				return nil, err
+			}
+			tokens = append(tokens, token)
 		default:
-			return nil, &unrecognizedTokenError{
-				pos:   t.pos,
-				token: cur,
+			return nil, &UnrecognizedTokenError{
+				Pos:   t.pos,
+				Token: cur,
 			}
 		}
 	}
@@ -85,11 +106,45 @@ func (t *tokenizer) tokenize() ([]token, error) {
 	return tokens, nil
 }
 
-type unrecognizedTokenError struct {
-	pos   int
-	token byte
+func (t *tokenizer) readString() (token, error) {
+	startPos := t.pos
+	// skip the current " character
+	t.pos++
+	builder := strings.Builder{}
+
+	var cur byte
+	for {
+		if t.pos > len(t.input)-1 {
+			return token{}, &UnclosedStringError{Pos: startPos}
+		}
+		cur = t.input[t.pos]
+
+		if cur == '"' {
+			t.pos++
+			return token{
+				kind:  TokenString,
+				value: builder.String(),
+			}, nil
+		}
+
+		builder.WriteByte(cur)
+		t.pos++
+	}
 }
 
-func (u *unrecognizedTokenError) Error() string {
-	return fmt.Sprintf("unrecognized token %v at position %v", u.token, u.pos)
+type UnrecognizedTokenError struct {
+	Pos   int
+	Token byte
+}
+
+func (u *UnrecognizedTokenError) Error() string {
+	return fmt.Sprintf("unrecognized token %v at position %v", u.Token, u.Pos)
+}
+
+type UnclosedStringError struct {
+	Pos int
+}
+
+func (u *UnclosedStringError) Error() string {
+	return fmt.Sprintf("unclosed string at position %v", u.Pos)
 }

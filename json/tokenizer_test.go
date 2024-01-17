@@ -43,6 +43,17 @@ func TestTokenize(t *testing.T) {
 			wantError: false,
 		},
 		{
+			name: `should tokenize "foo"`,
+			arg:  `"foo"`,
+			expected: []token{
+				{
+					kind:  TokenString,
+					value: "foo",
+				},
+			},
+			wantError: false,
+		},
+		{
 			name:      "should fail on unrecognized token",
 			arg:       "/",
 			expected:  nil,
@@ -51,6 +62,18 @@ func TestTokenize(t *testing.T) {
 		{
 			name:      "should fail on empty string",
 			arg:       "",
+			expected:  nil,
+			wantError: true,
+		},
+		{
+			name:      `should fail on '"foo'`,
+			arg:       `"foo`,
+			expected:  nil,
+			wantError: true,
+		},
+		{
+			name:      `should fail on '{}"`,
+			arg:       `{}"`,
 			expected:  nil,
 			wantError: true,
 		},
