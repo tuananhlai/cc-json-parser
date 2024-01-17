@@ -76,6 +76,44 @@ func TestTokenize(t *testing.T) {
 			wantError: false,
 		},
 		{
+			name: "should tokenize '123'",
+			arg:  "123",
+			expected: []token{
+				{
+					kind:  TokenNumber,
+					value: "123",
+				},
+			},
+			wantError: false,
+		},
+		{
+			name: `should tokenize '{"key1":"foo","key2":234,"key3":true,"key4":false,"key5":null}'`,
+			arg:  `{"key1":"foo","key2":234,"key3":true,"key4":false,"key5":null}`,
+			expected: []token{
+				{kind: TokenOpenParen, value: "{"},
+				{kind: TokenString, value: "key1"},
+				{kind: TokenColon, value: ":"},
+				{kind: TokenString, value: "foo"},
+				{kind: TokenComma, value: ","},
+				{kind: TokenString, value: "key2"},
+				{kind: TokenColon, value: ":"},
+				{kind: TokenNumber, value: "234"},
+				{kind: TokenComma, value: ","},
+				{kind: TokenString, value: "key3"},
+				{kind: TokenColon, value: ":"},
+				{kind: TokenBool, value: "true"},
+				{kind: TokenComma, value: ","},
+				{kind: TokenString, value: "key4"},
+				{kind: TokenColon, value: ":"},
+				{kind: TokenBool, value: "false"},
+				{kind: TokenComma, value: ","},
+				{kind: TokenString, value: "key5"},
+				{kind: TokenColon, value: ":"},
+				{kind: TokenNull, value: "null"},
+				{kind: TokenCloseParen, value: "}"},
+			},
+		},
+		{
 			name:      "should fail on unrecognized token",
 			arg:       "/",
 			expected:  nil,
@@ -117,7 +155,7 @@ func TestTokenize(t *testing.T) {
 			tokenizer := newTokenizer(tC.arg)
 			tokens, err := tokenizer.tokenize()
 			if err != nil && !tC.wantError {
-				t.Errorf("got unexpected error: %v", err)
+				t.Fatalf("got unexpected error: %v", err)
 			}
 
 			if !reflect.DeepEqual(tokens, tC.expected) {

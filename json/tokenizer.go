@@ -51,7 +51,7 @@ func (t *tokenizer) tokenize() ([]token, error) {
 
 		cur := t.input[t.pos]
 		switch cur {
-		case ' ', '\t', '\n':
+		case ' ', '\t', '\n', '\r':
 			t.pos++
 		case '{':
 			t.pos++
@@ -97,6 +97,18 @@ func (t *tokenizer) tokenize() ([]token, error) {
 			tokens = append(tokens, token)
 		case 't', 'f':
 			token, err := t.readBoolean()
+			if err != nil {
+				return nil, err
+			}
+			tokens = append(tokens, token)
+		case '1', '2', '3', '4', '5', '6', '7', '8', '9':
+			token, err := t.readNumber()
+			if err != nil {
+				return nil, err
+			}
+			tokens = append(tokens, token)
+		case 'n':
+			token, err := t.readNull()
 			if err != nil {
 				return nil, err
 			}
@@ -165,13 +177,40 @@ func (t *tokenizer) readBoolean() (token, error) {
 	}
 }
 
+func (t *tokenizer) readNumber() (token, error) {
+	builder := strings.Builder{}
+
+	for {
+		if t.pos > len(t.input)-1 || t.input[t.pos] < '0' || t.input[t.pos] > '9' {
+			return token{
+				kind:  TokenNumber,
+				value: builder.String(),
+			}, nil
+		}
+		builder.WriteByte(t.input[t.pos])
+		t.pos++
+	}
+}
+
+func (t *tokenizer) readNull() (token, error) {
+	if t.pos+4 > len(t.input) || t.input[t.pos:t.pos+4] != "null" {
+		return token{}, fmt.Errorf("uncognized token at pos %v", t.pos)
+	}
+
+	t.pos += 4
+	return token{
+		kind:  TokenNull,
+		value: "null",
+	}, nil
+}
+
 type UnrecognizedTokenError struct {
 	Pos   int
 	Token byte
 }
 
 func (u *UnrecognizedTokenError) Error() string {
-	return fmt.Sprintf("unrecognized token %v at position %v", u.Token, u.Pos)
+	return fmt.Sprintf("unrecognized token %v at position %v", string(u.Token), u.Pos)
 }
 
 type UnclosedStringError struct {
