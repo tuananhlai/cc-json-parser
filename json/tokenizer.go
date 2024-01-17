@@ -42,7 +42,7 @@ func (t *tokenizer) tokenize() ([]token, error) {
 		return nil, fmt.Errorf("empty string received")
 	}
 
-	tokens := make([]token, 0)
+	var tokens []token
 
 	for {
 		if t.pos > len(t.input)-1 {
@@ -95,6 +95,12 @@ func (t *tokenizer) tokenize() ([]token, error) {
 				return nil, err
 			}
 			tokens = append(tokens, token)
+		case 't', 'f':
+			token, err := t.readBoolean()
+			if err != nil {
+				return nil, err
+			}
+			tokens = append(tokens, token)
 		default:
 			return nil, &UnrecognizedTokenError{
 				Pos:   t.pos,
@@ -129,6 +135,33 @@ func (t *tokenizer) readString() (token, error) {
 
 		builder.WriteByte(cur)
 		t.pos++
+	}
+}
+
+func (t *tokenizer) readBoolean() (token, error) {
+	switch t.input[t.pos] {
+	case 't':
+		if t.pos+4 > len(t.input) || t.input[t.pos:t.pos+4] != "true" {
+			return token{}, fmt.Errorf("uncognized token at pos %v", t.pos)
+		}
+
+		t.pos += 4
+		return token{
+			kind:  TokenBool,
+			value: "true",
+		}, nil
+	case 'f':
+		if t.pos+5 > len(t.input) || t.input[t.pos:t.pos+5] != "false" {
+			return token{}, fmt.Errorf("uncognized token at pos %v", t.pos)
+		}
+
+		t.pos += 5
+		return token{
+			kind:  TokenBool,
+			value: "false",
+		}, nil
+	default:
+		return token{}, fmt.Errorf("unknown state reached while processing boolean")
 	}
 }
 

@@ -54,6 +54,28 @@ func TestTokenize(t *testing.T) {
 			wantError: false,
 		},
 		{
+			name: "should tokenize 'true'",
+			arg:  "true",
+			expected: []token{
+				{
+					kind:  TokenBool,
+					value: "true",
+				},
+			},
+			wantError: false,
+		},
+		{
+			name: "should tokenize 'false'",
+			arg:  "false",
+			expected: []token{
+				{
+					kind:  TokenBool,
+					value: "false",
+				},
+			},
+			wantError: false,
+		},
+		{
 			name:      "should fail on unrecognized token",
 			arg:       "/",
 			expected:  nil,
@@ -74,6 +96,18 @@ func TestTokenize(t *testing.T) {
 		{
 			name:      `should fail on '{}"`,
 			arg:       `{}"`,
+			expected:  nil,
+			wantError: true,
+		},
+		{
+			name:      "should fail on 'tru'",
+			arg:       "tru",
+			expected:  nil,
+			wantError: true,
+		},
+		{
+			name:      "should fail on 'fals'",
+			arg:       "fals",
 			expected:  nil,
 			wantError: true,
 		},
