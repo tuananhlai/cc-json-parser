@@ -80,7 +80,7 @@ func TestTokenize(t *testing.T) {
 			arg:  "123",
 			expected: []token{
 				{
-					kind:  TokenNumber,
+					kind:  TokenInteger,
 					value: "123",
 				},
 			},
@@ -97,7 +97,7 @@ func TestTokenize(t *testing.T) {
 				{kind: TokenComma, value: ","},
 				{kind: TokenString, value: "key2"},
 				{kind: TokenColon, value: ":"},
-				{kind: TokenNumber, value: "234"},
+				{kind: TokenInteger, value: "234"},
 				{kind: TokenComma, value: ","},
 				{kind: TokenString, value: "key3"},
 				{kind: TokenColon, value: ":"},
@@ -111,6 +111,36 @@ func TestTokenize(t *testing.T) {
 				{kind: TokenColon, value: ":"},
 				{kind: TokenNull, value: "null"},
 				{kind: TokenCloseParen, value: "}"},
+			},
+		},
+		{
+			name: "should tokenize '3.1415'",
+			arg:  "3.1415",
+			expected: []token{
+				{
+					kind: TokenFloat,
+					value: "3.1415",
+				},
+			},
+		},
+		{
+			name: "should tokenize '0'",
+			arg: "0",
+			expected: []token{
+				{
+					kind: TokenInteger,
+					value: "0",
+				},
+			},
+		},
+		{
+			name: "should tokenize '0.1234'",
+			arg: "0.1234",
+			expected: []token{
+				{
+					kind: TokenFloat,
+					value: "0.1234",
+				},
 			},
 		},
 		{

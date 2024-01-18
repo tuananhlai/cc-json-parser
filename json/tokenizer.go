@@ -15,7 +15,8 @@ const (
 	TokenColon
 	TokenString
 	TokenBool
-	TokenNumber
+	TokenInteger
+	TokenFloat
 	TokenNull
 	TokenComma
 )
@@ -101,7 +102,7 @@ func (t *tokenizer) tokenize() ([]token, error) {
 				return nil, err
 			}
 			tokens = append(tokens, token)
-		case '1', '2', '3', '4', '5', '6', '7', '8', '9':
+		case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
 			token, err := t.readNumber()
 			if err != nil {
 				return nil, err
@@ -179,13 +180,56 @@ func (t *tokenizer) readBoolean() (token, error) {
 
 func (t *tokenizer) readNumber() (token, error) {
 	builder := strings.Builder{}
+	tokenKind := TokenInteger
 
+	switch t.input[t.pos] {
+	case '0':
+		builder.WriteByte('0')
+		t.pos++
+
+	case '1', '2', '3', '4', '5', '6', '7', '8', '9':
+		digits := t.readDigits()
+		builder.WriteString(digits)
+	}
+
+	if t.pos > len(t.input)-1 {
+		return token{
+			kind:  tokenKind,
+			value: builder.String(),
+		}, nil
+	}
+
+	if t.input[t.pos] == '.' {
+		tokenKind = TokenFloat
+		builder.WriteByte('.')
+		t.pos++
+		digits := t.readDigits()
+		if len(digits) == 0 {
+			return token{}, fmt.Errorf("no digit found after decimal point")
+		}
+		builder.WriteString(digits)
+	}
+
+	if t.pos > len(t.input)-1 {
+		return token{
+			kind:  tokenKind,
+			value: builder.String(),
+		}, nil
+	}
+
+	// process floating point notation here
+
+	return token{
+		kind:  tokenKind,
+		value: builder.String(),
+	}, nil
+}
+
+func (t *tokenizer) readDigits() string {
+	builder := strings.Builder{}
 	for {
 		if t.pos > len(t.input)-1 || t.input[t.pos] < '0' || t.input[t.pos] > '9' {
-			return token{
-				kind:  TokenNumber,
-				value: builder.String(),
-			}, nil
+			return builder.String()
 		}
 		builder.WriteByte(t.input[t.pos])
 		t.pos++
