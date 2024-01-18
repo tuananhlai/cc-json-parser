@@ -316,12 +316,12 @@ func (t *tokenizer) readEscapedCharacter() (rune, error) {
 		return '\t', nil
 	case 'u':
 		if t.pos+5 > len(t.input) {
-			return 0, fmt.Errorf("invalid unicode code point")
+			return 0, fmt.Errorf("invalid unicode code point: insufficient length")
 		}
 
 		charValue, err := strconv.ParseInt(t.input[t.pos+1 : t.pos+5], 16, 32)
 		if err != nil {
-			return 0, err
+			return 0, fmt.Errorf("invalid unicode code point")
 		}
 
 		unicodeChar := rune(charValue)
