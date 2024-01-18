@@ -102,7 +102,7 @@ func (t *tokenizer) tokenize() ([]token, error) {
 				return nil, err
 			}
 			tokens = append(tokens, token)
-		case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
 			token, err := t.readNumber()
 			if err != nil {
 				return nil, err
@@ -182,6 +182,15 @@ func (t *tokenizer) readNumber() (token, error) {
 	builder := strings.Builder{}
 	tokenKind := TokenInteger
 
+	if t.input[t.pos] == '-' {
+		builder.WriteByte('-')
+		t.pos++
+	}
+
+	if t.pos > len(t.input)-1 {
+		return token{}, fmt.Errorf("unexpected termination of number")
+	}
+
 	switch t.input[t.pos] {
 	case '0':
 		builder.WriteByte('0')
@@ -190,6 +199,8 @@ func (t *tokenizer) readNumber() (token, error) {
 	case '1', '2', '3', '4', '5', '6', '7', '8', '9':
 		digits := t.readDigits()
 		builder.WriteString(digits)
+	default:
+		return token{}, fmt.Errorf("unexpected value while reading number")
 	}
 
 	if t.pos > len(t.input)-1 {
@@ -199,6 +210,7 @@ func (t *tokenizer) readNumber() (token, error) {
 		}, nil
 	}
 
+	// handle decimal point
 	if t.input[t.pos] == '.' {
 		tokenKind = TokenFloat
 		builder.WriteByte('.')
@@ -217,7 +229,25 @@ func (t *tokenizer) readNumber() (token, error) {
 		}, nil
 	}
 
-	// process floating point notation here
+	// handle scientific notation
+	if t.input[t.pos] == 'e' || t.input[t.pos] == 'E' {
+		tokenKind = TokenFloat
+		builder.WriteByte(t.input[t.pos])
+		t.pos++
+
+		if t.pos > len(t.input)-1 || (t.input[t.pos] != '-' && t.input[t.pos] != '+') {
+			return token{}, fmt.Errorf("invalid scientific notation: sign not found")
+		}
+
+		builder.WriteByte(t.input[t.pos])
+		t.pos++
+		digits := t.readDigits()
+		if len(digits) == 0 {
+			return token{}, fmt.Errorf("invalid scientific notation: no digit found")
+		}
+
+		builder.WriteString(digits)
+	}
 
 	return token{
 		kind:  tokenKind,
@@ -247,6 +277,37 @@ func (t *tokenizer) readNull() (token, error) {
 		value: "null",
 	}, nil
 }
+
+// func (t *tokenizer) readEscapedCharacter() (byte, error) {
+// 	t.pos++
+
+// 	if t.pos > len(t.input)-1 {
+// 		return 0, fmt.Errorf("EOF while reading escaped character")
+// 	}
+
+// 	switch t.input[t.pos] {
+// 	case '"', '/', '\\':
+// 		t.pos++
+// 		return t.input[t.pos], nil
+// 	case 'b':
+// 		t.pos++
+// 		return '\b', nil
+// 	case 'f':
+// 		t.pos++
+// 		return '\f', nil
+// 	case 'n':
+// 		t.pos++
+// 		return '\n', nil
+// 	case 'r':
+// 		t.pos++
+// 		return '\r', nil
+// 	case 't':
+// 		t.pos++
+// 		return '\t', nil
+// 	default:
+// 		return 0, fmt.Errorf("unknown escape character")
+// 	}
+// }
 
 type UnrecognizedTokenError struct {
 	Pos   int

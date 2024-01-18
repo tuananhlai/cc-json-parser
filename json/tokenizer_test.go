@@ -118,29 +118,50 @@ func TestTokenize(t *testing.T) {
 			arg:  "3.1415",
 			expected: []token{
 				{
-					kind: TokenFloat,
+					kind:  TokenFloat,
 					value: "3.1415",
 				},
 			},
 		},
 		{
 			name: "should tokenize '0'",
-			arg: "0",
+			arg:  "0",
 			expected: []token{
 				{
-					kind: TokenInteger,
+					kind:  TokenInteger,
 					value: "0",
 				},
 			},
 		},
 		{
 			name: "should tokenize '0.1234'",
-			arg: "0.1234",
+			arg:  "0.1234",
 			expected: []token{
 				{
-					kind: TokenFloat,
+					kind:  TokenFloat,
 					value: "0.1234",
 				},
+			},
+		},
+		{
+			name: "should tokenize '1e+01'",
+			arg:  "1e+01",
+			expected: []token{
+				{kind: TokenFloat, value: "1e+01"},
+			},
+		},
+		{
+			name: "should tokenize '0.1234e-0123'",
+			arg:  "0.1234e-0123",
+			expected: []token{
+				{kind: TokenFloat, value: "0.1234e-0123"},
+			},
+		},
+		{
+			name: "should tokenize '-0.1234e-0123'",
+			arg:  "-0.1234e-0123",
+			expected: []token{
+				{kind: TokenFloat, value: "-0.1234e-0123"},
 			},
 		},
 		{
@@ -179,13 +200,19 @@ func TestTokenize(t *testing.T) {
 			expected:  nil,
 			wantError: true,
 		},
+		{
+			name:      "should fail on '0.'",
+			arg:       "0.",
+			expected:  nil,
+			wantError: true,
+		},
 	}
 	for _, tC := range testCases {
 		t.Run(tC.name, func(t *testing.T) {
 			tokenizer := newTokenizer(tC.arg)
 			tokens, err := tokenizer.tokenize()
 			if err != nil && !tC.wantError {
-				t.Fatalf("got unexpected error: %v", err)
+				t.Fatalf("got unexpected error for input %v: %v", tC.arg, err)
 			}
 
 			if !reflect.DeepEqual(tokens, tC.expected) {
