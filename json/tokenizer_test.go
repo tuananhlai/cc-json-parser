@@ -55,11 +55,21 @@ func TestTokenize(t *testing.T) {
 		},
 		{
 			name: `should tokenize 'foo\nbar'`,
-			arg: `"foo\nbar"`,
+			arg:  `"foo\nbar"`,
 			expected: []token{
 				{
-					kind: TokenString,
+					kind:  TokenString,
 					value: "foo\nbar",
+				},
+			},
+		},
+		{
+			name: `should tokenize 'foo\u2318bar'`,
+			arg:  `"foo\u2318bar"`,
+			expected: []token{
+				{
+					kind:  TokenString,
+					value: "foo\u2318bar",
 				},
 			},
 		},

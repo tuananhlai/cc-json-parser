@@ -2,6 +2,7 @@ package json
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -143,7 +144,7 @@ func (t *tokenizer) readString() (token, error) {
 				return token{}, fmt.Errorf("unexpected escape character: %v", err)
 			}
 
-			builder.WriteByte(escapedChar)
+			builder.WriteRune(escapedChar)
 			continue
 		}
 
@@ -287,7 +288,7 @@ func (t *tokenizer) readNull() (token, error) {
 	}, nil
 }
 
-func (t *tokenizer) readEscapedCharacter() (byte, error) {
+func (t *tokenizer) readEscapedCharacter() (rune, error) {
 	t.pos++
 
 	if t.pos > len(t.input)-1 {
@@ -297,7 +298,7 @@ func (t *tokenizer) readEscapedCharacter() (byte, error) {
 	switch t.input[t.pos] {
 	case '"', '/', '\\':
 		t.pos++
-		return t.input[t.pos], nil
+		return rune(t.input[t.pos]), nil
 	case 'b':
 		t.pos++
 		return '\b', nil
@@ -313,6 +314,20 @@ func (t *tokenizer) readEscapedCharacter() (byte, error) {
 	case 't':
 		t.pos++
 		return '\t', nil
+	case 'u':
+		if t.pos+5 > len(t.input) {
+			return 0, fmt.Errorf("invalid unicode code point")
+		}
+
+		charValue, err := strconv.ParseInt(t.input[t.pos+1 : t.pos+5], 16, 32)
+		if err != nil {
+			return 0, err
+		}
+
+		unicodeChar := rune(charValue)
+
+		t.pos += 5
+		return unicodeChar, nil
 	default:
 		return 0, fmt.Errorf("unknown escape character")
 	}
