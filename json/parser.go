@@ -21,14 +21,26 @@ func (p *parser) parse() (interface{}, error) {
 		return nil, fmt.Errorf("empty list of token received")
 	}
 
+	var retval interface{}
+	var err error
 	switch p.tokens[p.pos].kind {
 	case TokenOpenParen:
-		return p.parseObject()
+		retval, err = p.parseObject()
 	case TokenOpenBracket:
-		return p.parseArray()
+		retval, err = p.parseArray()
 	default:
 		return nil, fmt.Errorf("only object or array can be the root object")
 	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	if p.pos <= len(p.tokens)-1 {
+		return nil, fmt.Errorf("unexpected token found after root object")
+	}
+
+	return retval, nil
 }
 
 func (p *parser) parseValue() (interface{}, error) {
@@ -64,9 +76,6 @@ func (p *parser) parseValue() (interface{}, error) {
 
 func (p *parser) parseObject() (map[string]interface{}, error) {
 	p.pos++
-	if p.pos > len(p.tokens)-1 {
-		return nil, fmt.Errorf("unexpected EOF")
-	}
 
 	obj := map[string]interface{}{}
 	var key string
@@ -82,13 +91,12 @@ func (p *parser) parseObject() (map[string]interface{}, error) {
 			return obj, nil
 		}
 
-		if len(obj) > 0 && curToken.kind != TokenComma {
-			fmt.Println(len(obj), obj, curToken)
-			return nil, fmt.Errorf("invalid token found while parsing object")
-		} else if curToken.kind == TokenComma {
-			p.pos++
+		if len(obj) > 0 {
+			_, err := p.readNextToken(TokenComma)
+			if err != nil {
+				return nil, err
+			}
 		}
-
 
 		strToken, err := p.readNextToken(TokenString)
 		if err != nil {
@@ -111,25 +119,27 @@ func (p *parser) parseObject() (map[string]interface{}, error) {
 }
 
 func (p *parser) parseArray() ([]interface{}, error) {
+	// skip open bracket token
 	p.pos++
-	if p.pos > len(p.tokens)-1 {
-		return nil, fmt.Errorf("unexpected EOF")
-	}
-	var arr []interface{}
 
+	var arr []interface{}
 	for {
 		if p.pos > len(p.tokens)-1 {
 			return nil, fmt.Errorf("unexpected EOF")
 		}
 
 		curToken := p.tokens[p.pos]
-		if curToken.kind != TokenCloseBracket && !(len(arr) > 0 && curToken.kind == TokenComma) {
-			return nil, fmt.Errorf("invalid token found while parsing object")
-		}
 
 		if curToken.kind == TokenCloseBracket {
 			p.pos++
 			return arr, nil
+		}
+
+		if len(arr) > 0 {
+			_, err := p.readNextToken(TokenComma)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		value, err := p.parseValue()

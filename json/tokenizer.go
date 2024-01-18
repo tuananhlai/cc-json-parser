@@ -22,6 +22,8 @@ const (
 	TokenComma
 )
 
+var invalidCharacterSet = newByteSet('\t', '\b', '\f', '\n', '\r')
+
 type token struct {
 	kind  TokenKind
 	value string
@@ -138,6 +140,11 @@ func (t *tokenizer) readString() (token, error) {
 			return token{}, &UnclosedStringError{Pos: startPos}
 		}
 		cur = t.input[t.pos]
+
+		if invalidCharacterSet.has(cur) {
+			return token{}, fmt.Errorf("invalid character found in string")
+		}
+
 		if cur == '\\' {
 			escapedChar, err := t.readEscapedCharacter()
 			if err != nil {
@@ -245,12 +252,15 @@ func (t *tokenizer) readNumber() (token, error) {
 		builder.WriteByte(t.input[t.pos])
 		t.pos++
 
-		if t.pos > len(t.input)-1 || (t.input[t.pos] != '-' && t.input[t.pos] != '+') {
-			return token{}, fmt.Errorf("invalid scientific notation: sign not found")
+		if t.pos > len(t.input)-1 {
+			return token{}, fmt.Errorf("unexpected eof")
 		}
 
-		builder.WriteByte(t.input[t.pos])
-		t.pos++
+		if t.input[t.pos] == '-' || t.input[t.pos] == '+' {
+			builder.WriteByte(t.input[t.pos])
+			t.pos++
+		}
+
 		digits := t.readDigits()
 		if len(digits) == 0 {
 			return token{}, fmt.Errorf("invalid scientific notation: no digit found")
@@ -319,7 +329,7 @@ func (t *tokenizer) readEscapedCharacter() (rune, error) {
 			return 0, fmt.Errorf("invalid unicode code point: insufficient length")
 		}
 
-		charValue, err := strconv.ParseInt(t.input[t.pos+1 : t.pos+5], 16, 32)
+		charValue, err := strconv.ParseInt(t.input[t.pos+1:t.pos+5], 16, 32)
 		if err != nil {
 			return 0, fmt.Errorf("invalid unicode code point")
 		}
@@ -348,4 +358,22 @@ type UnclosedStringError struct {
 
 func (u *UnclosedStringError) Error() string {
 	return fmt.Sprintf("unclosed string at position %v", u.Pos)
+}
+
+// byteSet represents a minimal set implementation using a map.
+type byteSet map[byte]struct{}
+
+// newByteSet creates a new set with prepopulated elements.
+func newByteSet(elements ...byte) byteSet {
+	s := make(byteSet)
+	for _, element := range elements {
+		s[element] = struct{}{}
+	}
+	return s
+}
+
+// has checks if the set contains a given element.
+func (s byteSet) has(element byte) bool {
+	_, exists := s[element]
+	return exists
 }
