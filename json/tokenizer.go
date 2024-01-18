@@ -137,6 +137,15 @@ func (t *tokenizer) readString() (token, error) {
 			return token{}, &UnclosedStringError{Pos: startPos}
 		}
 		cur = t.input[t.pos]
+		if cur == '\\' {
+			escapedChar, err := t.readEscapedCharacter()
+			if err != nil {
+				return token{}, fmt.Errorf("unexpected escape character: %v", err)
+			}
+
+			builder.WriteByte(escapedChar)
+			continue
+		}
 
 		if cur == '"' {
 			t.pos++
@@ -278,36 +287,36 @@ func (t *tokenizer) readNull() (token, error) {
 	}, nil
 }
 
-// func (t *tokenizer) readEscapedCharacter() (byte, error) {
-// 	t.pos++
+func (t *tokenizer) readEscapedCharacter() (byte, error) {
+	t.pos++
 
-// 	if t.pos > len(t.input)-1 {
-// 		return 0, fmt.Errorf("EOF while reading escaped character")
-// 	}
+	if t.pos > len(t.input)-1 {
+		return 0, fmt.Errorf("EOF while reading escaped character")
+	}
 
-// 	switch t.input[t.pos] {
-// 	case '"', '/', '\\':
-// 		t.pos++
-// 		return t.input[t.pos], nil
-// 	case 'b':
-// 		t.pos++
-// 		return '\b', nil
-// 	case 'f':
-// 		t.pos++
-// 		return '\f', nil
-// 	case 'n':
-// 		t.pos++
-// 		return '\n', nil
-// 	case 'r':
-// 		t.pos++
-// 		return '\r', nil
-// 	case 't':
-// 		t.pos++
-// 		return '\t', nil
-// 	default:
-// 		return 0, fmt.Errorf("unknown escape character")
-// 	}
-// }
+	switch t.input[t.pos] {
+	case '"', '/', '\\':
+		t.pos++
+		return t.input[t.pos], nil
+	case 'b':
+		t.pos++
+		return '\b', nil
+	case 'f':
+		t.pos++
+		return '\f', nil
+	case 'n':
+		t.pos++
+		return '\n', nil
+	case 'r':
+		t.pos++
+		return '\r', nil
+	case 't':
+		t.pos++
+		return '\t', nil
+	default:
+		return 0, fmt.Errorf("unknown escape character")
+	}
+}
 
 type UnrecognizedTokenError struct {
 	Pos   int
