@@ -1,7 +1,6 @@
 package json
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 )
@@ -41,9 +40,10 @@ func newTokenizer(input string) *tokenizer {
 	}
 }
 
+// tokenize breaks the input JSON string into a list of predefined tokens.
 func (t *tokenizer) tokenize() ([]token, error) {
 	if len(t.input) == 0 {
-		return nil, fmt.Errorf("empty string received")
+		return nil, ErrUnexpectedEOF
 	}
 
 	var tokens []token
@@ -118,10 +118,7 @@ func (t *tokenizer) tokenize() ([]token, error) {
 			}
 			tokens = append(tokens, token)
 		default:
-			return nil, &UnrecognizedTokenError{
-				Pos:   t.pos,
-				Token: cur,
-			}
+			return nil, NewUnexpectedTokenError(t.pos, cur)
 		}
 	}
 
@@ -129,7 +126,6 @@ func (t *tokenizer) tokenize() ([]token, error) {
 }
 
 func (t *tokenizer) readString() (token, error) {
-	startPos := t.pos
 	// skip the current " character
 	t.pos++
 	builder := strings.Builder{}
@@ -137,18 +133,18 @@ func (t *tokenizer) readString() (token, error) {
 	var cur byte
 	for {
 		if t.pos > len(t.input)-1 {
-			return token{}, &UnclosedStringError{Pos: startPos}
+			return token{}, ErrUnexpectedEOF
 		}
 		cur = t.input[t.pos]
 
 		if invalidCharacterSet.has(cur) {
-			return token{}, fmt.Errorf("invalid character found in string")
+			return token{}, NewInvalidCharacterError(t.pos, cur)
 		}
 
 		if cur == '\\' {
 			escapedChar, err := t.readEscapedCharacter()
 			if err != nil {
-				return token{}, fmt.Errorf("unexpected escape character: %v", err)
+				return token{}, err
 			}
 
 			builder.WriteRune(escapedChar)
@@ -171,8 +167,11 @@ func (t *tokenizer) readString() (token, error) {
 func (t *tokenizer) readBoolean() (token, error) {
 	switch t.input[t.pos] {
 	case 't':
-		if t.pos+4 > len(t.input) || t.input[t.pos:t.pos+4] != "true" {
-			return token{}, fmt.Errorf("uncognized token at pos %v", t.pos)
+		if t.pos+4 > len(t.input) {
+			return token{}, ErrUnexpectedEOF
+		}
+		if t.input[t.pos:t.pos+4] != "true" {
+			return token{}, NewUnexpectedTokenError(t.pos, t.input[t.pos:t.pos+4])
 		}
 
 		t.pos += 4
@@ -181,8 +180,11 @@ func (t *tokenizer) readBoolean() (token, error) {
 			value: "true",
 		}, nil
 	case 'f':
-		if t.pos+5 > len(t.input) || t.input[t.pos:t.pos+5] != "false" {
-			return token{}, fmt.Errorf("uncognized token at pos %v", t.pos)
+		if t.pos+5 > len(t.input) {
+			return token{}, ErrUnexpectedEOF
+		}
+		if t.input[t.pos:t.pos+5] != "false" {
+			return token{}, NewUnexpectedTokenError(t.pos, t.input[t.pos:t.pos+5])
 		}
 
 		t.pos += 5
@@ -191,11 +193,12 @@ func (t *tokenizer) readBoolean() (token, error) {
 			value: "false",
 		}, nil
 	default:
-		return token{}, fmt.Errorf("unknown state reached while processing boolean")
+		return token{}, ErrUnknownState
 	}
 }
 
 func (t *tokenizer) readNumber() (token, error) {
+	startPos := t.pos
 	builder := strings.Builder{}
 	tokenKind := TokenInteger
 
@@ -205,7 +208,7 @@ func (t *tokenizer) readNumber() (token, error) {
 	}
 
 	if t.pos > len(t.input)-1 {
-		return token{}, fmt.Errorf("unexpected termination of number")
+		return token{}, ErrUnexpectedEOF
 	}
 
 	switch t.input[t.pos] {
@@ -217,7 +220,7 @@ func (t *tokenizer) readNumber() (token, error) {
 		digits := t.readDigits()
 		builder.WriteString(digits)
 	default:
-		return token{}, fmt.Errorf("unexpected value while reading number")
+		return token{}, NewUnexpectedTokenError(t.pos, t.input[t.pos])
 	}
 
 	if t.pos > len(t.input)-1 {
@@ -234,7 +237,7 @@ func (t *tokenizer) readNumber() (token, error) {
 		t.pos++
 		digits := t.readDigits()
 		if len(digits) == 0 {
-			return token{}, fmt.Errorf("no digit found after decimal point")
+			return token{}, NewInvalidNumberError(startPos, "no digit found after decimal point")
 		}
 		builder.WriteString(digits)
 	}
@@ -253,7 +256,7 @@ func (t *tokenizer) readNumber() (token, error) {
 		t.pos++
 
 		if t.pos > len(t.input)-1 {
-			return token{}, fmt.Errorf("unexpected eof")
+			return token{}, ErrUnexpectedEOF
 		}
 
 		if t.input[t.pos] == '-' || t.input[t.pos] == '+' {
@@ -263,7 +266,7 @@ func (t *tokenizer) readNumber() (token, error) {
 
 		digits := t.readDigits()
 		if len(digits) == 0 {
-			return token{}, fmt.Errorf("invalid scientific notation: no digit found")
+			return token{}, NewInvalidNumberError(startPos, "no digit found after exponent")
 		}
 
 		builder.WriteString(digits)
@@ -287,8 +290,12 @@ func (t *tokenizer) readDigits() string {
 }
 
 func (t *tokenizer) readNull() (token, error) {
-	if t.pos+4 > len(t.input) || t.input[t.pos:t.pos+4] != "null" {
-		return token{}, fmt.Errorf("uncognized token at pos %v", t.pos)
+	if t.pos+4 > len(t.input) {
+		return token{}, ErrUnexpectedEOF
+	}
+
+	if t.input[t.pos:t.pos+4] != "null" {
+		return token{}, NewUnexpectedTokenError(t.pos, t.input[t.pos:t.pos+4])
 	}
 
 	t.pos += 4
@@ -302,7 +309,7 @@ func (t *tokenizer) readEscapedCharacter() (rune, error) {
 	t.pos++
 
 	if t.pos > len(t.input)-1 {
-		return 0, fmt.Errorf("EOF while reading escaped character")
+		return 0, ErrUnexpectedEOF
 	}
 
 	switch t.input[t.pos] {
@@ -326,12 +333,12 @@ func (t *tokenizer) readEscapedCharacter() (rune, error) {
 		return '\t', nil
 	case 'u':
 		if t.pos+5 > len(t.input) {
-			return 0, fmt.Errorf("invalid unicode code point: insufficient length")
+			return 0, ErrUnexpectedEOF
 		}
 
 		charValue, err := strconv.ParseInt(t.input[t.pos+1:t.pos+5], 16, 32)
 		if err != nil {
-			return 0, fmt.Errorf("invalid unicode code point")
+			return 0, NewInvalidCharacterError(t.pos, t.input[t.pos+1:t.pos+5])
 		}
 
 		unicodeChar := rune(charValue)
@@ -339,25 +346,8 @@ func (t *tokenizer) readEscapedCharacter() (rune, error) {
 		t.pos += 5
 		return unicodeChar, nil
 	default:
-		return 0, fmt.Errorf("unknown escape character")
+		return 0, NewInvalidCharacterError(t.pos, t.input[t.pos])
 	}
-}
-
-type UnrecognizedTokenError struct {
-	Pos   int
-	Token byte
-}
-
-func (u *UnrecognizedTokenError) Error() string {
-	return fmt.Sprintf("unrecognized token %v at position %v", string(u.Token), u.Pos)
-}
-
-type UnclosedStringError struct {
-	Pos int
-}
-
-func (u *UnclosedStringError) Error() string {
-	return fmt.Sprintf("unclosed string at position %v", u.Pos)
 }
 
 // byteSet represents a minimal set implementation using a map.

@@ -1,10 +1,10 @@
 package json
 
 import (
-	"fmt"
 	"strconv"
 )
 
+// parser parses a list of tokens into a Go data structure.
 type parser struct {
 	tokens []token
 	pos    int
@@ -16,9 +16,10 @@ func newParser(tokens []token) *parser {
 	}
 }
 
+// parser parses a list of tokens into a Go data structure.
 func (p *parser) parse() (interface{}, error) {
 	if len(p.tokens) == 0 {
-		return nil, fmt.Errorf("empty list of token received")
+		return nil, ErrUnexpectedEOF
 	}
 
 	var retval interface{}
@@ -29,7 +30,7 @@ func (p *parser) parse() (interface{}, error) {
 	case TokenOpenBracket:
 		retval, err = p.parseArray()
 	default:
-		return nil, fmt.Errorf("only object or array can be the root object")
+		return nil, ErrInvalidRootObject
 	}
 
 	if err != nil {
@@ -37,7 +38,7 @@ func (p *parser) parse() (interface{}, error) {
 	}
 
 	if p.pos <= len(p.tokens)-1 {
-		return nil, fmt.Errorf("unexpected token found after root object")
+		return nil, ErrMultipleRootElements
 	}
 
 	return retval, nil
@@ -45,7 +46,7 @@ func (p *parser) parse() (interface{}, error) {
 
 func (p *parser) parseValue() (interface{}, error) {
 	if p.pos > len(p.tokens)-1 {
-		return nil, fmt.Errorf("unexpected EOF")
+		return nil, ErrUnexpectedEOF
 	}
 
 	curToken := p.tokens[p.pos]
@@ -70,7 +71,7 @@ func (p *parser) parseValue() (interface{}, error) {
 		p.pos++
 		return nil, nil
 	default:
-		return nil, fmt.Errorf("invalid token for value")
+		return nil, ErrGenericUnexpectedToken
 	}
 }
 
@@ -82,7 +83,7 @@ func (p *parser) parseObject() (map[string]interface{}, error) {
 	var value interface{}
 	for {
 		if p.pos > len(p.tokens)-1 {
-			return nil, fmt.Errorf("unexpected EOF")
+			return nil, ErrUnexpectedEOF
 		}
 
 		curToken := p.tokens[p.pos]
@@ -125,7 +126,7 @@ func (p *parser) parseArray() ([]interface{}, error) {
 	var arr []interface{}
 	for {
 		if p.pos > len(p.tokens)-1 {
-			return nil, fmt.Errorf("unexpected EOF")
+			return nil, ErrUnexpectedEOF
 		}
 
 		curToken := p.tokens[p.pos]
@@ -151,14 +152,17 @@ func (p *parser) parseArray() ([]interface{}, error) {
 	}
 }
 
-func (p *parser) readNextToken(kind TokenKind) (token, error) {
+// readNextToken reads the next token if available and return the
+// token if it matches the expected token kind. Otherwise, it returns
+// an error.
+func (p *parser) readNextToken(expectedKind TokenKind) (token, error) {
 	if p.pos > len(p.tokens)-1 {
-		return token{}, fmt.Errorf("unexpected EOF")
+		return token{}, ErrUnexpectedEOF
 	}
 
 	curToken := p.tokens[p.pos]
-	if curToken.kind != kind {
-		return token{}, fmt.Errorf("unexpected token")
+	if curToken.kind != expectedKind {
+		return token{}, ErrGenericUnexpectedToken
 	}
 
 	p.pos++

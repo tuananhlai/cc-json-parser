@@ -1,22 +1,33 @@
 package main
 
 import (
-	"encoding/json"
-	"log"
+	"fmt"
+	"io"
+	"os"
 
 	ccjson "github.com/tuananhlai/cc-json-parser/json"
 )
 
 func main() {
-	output, err := ccjson.Parse(`{"foo": "bar", "baz": 3.14}`)
-	if err != nil {
-		log.Fatalf("error parsing json: %v", err)
+	var jsonInput []byte
+	var err error
+
+	if len(os.Args) == 1 {
+		jsonInput, err = io.ReadAll(os.Stdin)
+	} else {
+		jsonInput, err = os.ReadFile(os.Args[1])
 	}
 
-	jsonOutput, err := json.Marshal(output)
 	if err != nil {
-		log.Fatalf("error marshaling json: %v", err)
+		fmt.Printf("error reading json input: %v\n", err)
+		os.Exit(1)
 	}
 
-	log.Println(string(jsonOutput))
+	_, err = ccjson.Parse(string(jsonInput))
+	if err != nil {
+		fmt.Printf("%v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Println("JSON is valid. ✅")
 }
